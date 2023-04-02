@@ -45,13 +45,13 @@ func httpHandler(w http.ResponseWriter, req *http.Request) {
 
 		}
 
-		resp, err = controller.GetScores(database.Redis, params)
+		resp, err = controller.GetScores(params)
 
 	} else if req.Method == "POST" {
 
 		err = json.NewDecoder(req.Body).Decode(&params)
 
-		resp, err = controller.AddScore(database.Redis, params)
+		resp, err = controller.AddScore(params)
 
 	}
 

@@ -8,9 +8,10 @@ import (
 	"strconv"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/teo/vega/database"
 )
 
-func AddScore(c *redis.Client, p map[string]interface{}) (map[string]interface{}, error) {
+func AddScore(p map[string]interface{}) (map[string]interface{}, error) {
 
 	ctx := context.TODO()
 
@@ -19,8 +20,7 @@ func AddScore(c *redis.Client, p map[string]interface{}) (map[string]interface{}
 	steps := p["steps"].(float64)
 
 	//Validate data here in a production environment
-
-	err := c.ZAdd(ctx, "app_users", &redis.Z{
+	err := database.Redis.ZAdd(ctx, "app_users", &redis.Z{
 
 		Score: steps,
 
@@ -33,7 +33,7 @@ func AddScore(c *redis.Client, p map[string]interface{}) (map[string]interface{}
 
 	}
 
-	rank := c.ZRank(ctx, "app_users", p["nickname"].(string))
+	rank := database.Redis.ZRank(ctx, "app_users", p["nickname"].(string))
 
 	if err != nil {
 
@@ -55,7 +55,7 @@ func AddScore(c *redis.Client, p map[string]interface{}) (map[string]interface{}
 
 }
 
-func GetScores(c *redis.Client, p map[string]interface{}) (map[string]interface{}, error) {
+func GetScores(p map[string]interface{}) (map[string]interface{}, error) {
 
 	ctx := context.TODO()
 
@@ -75,7 +75,7 @@ func GetScores(c *redis.Client, p map[string]interface{}) (map[string]interface{
 
 	}
 
-	total, err := c.ZCount(ctx, "app_users", "-inf", "+inf").Result() //int64
+	total, err := database.Redis.ZCount(ctx, "app_users", "-inf", "+inf").Result() //int64
 
 	if err != nil {
 
@@ -83,7 +83,7 @@ func GetScores(c *redis.Client, p map[string]interface{}) (map[string]interface{
 
 	}
 
-	scores, err := c.ZRevRangeWithScores(ctx, "app_users", start, stop).Result() //highest to lowest score
+	scores, err := database.Redis.ZRevRangeWithScores(ctx, "app_users", start, stop).Result() //highest to lowest score
 
 	if err != nil {
 
@@ -97,7 +97,7 @@ func GetScores(c *redis.Client, p map[string]interface{}) (map[string]interface{
 
 		record := map[string]interface{}{}
 
-		rank := c.ZRank(ctx, "app_users", z.Member.(string))
+		rank := database.Redis.ZRank(ctx, "app_users", z.Member.(string))
 
 		if err != nil {
 
