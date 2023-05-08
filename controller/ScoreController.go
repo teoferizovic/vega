@@ -1,144 +1,58 @@
 package controller
 
 import (
-	"context"
-
+	"encoding/json"
 	"fmt"
+	"net/http"
 
-	"strconv"
-
-	"github.com/go-redis/redis/v8"
-	"github.com/teo/vega/database"
+	"github.com/teo/vega/service"
 )
 
-func AddScore(p map[string]interface{}) (map[string]interface{}, error) {
+func HttpHandler(w http.ResponseWriter, req *http.Request) {
 
-	ctx := context.TODO()
+	params := map[string]interface{}{}
 
-	nickname := p["nickname"].(string)
+	resp := map[string]interface{}{}
 
-	steps := p["steps"].(float64)
+	var err error
 
-	//Validate data here in a production environment
-	err := database.Redis.ZAdd(ctx, "app_users", &redis.Z{
+	if req.Method == "GET" {
 
-		Score: steps,
+		for k, v := range req.URL.Query() {
 
-		Member: nickname,
-	}).Err()
-
-	if err != nil {
-
-		return nil, err
-
-	}
-
-	rank := database.Redis.ZRank(ctx, "app_users", p["nickname"].(string))
-
-	if err != nil {
-
-		return nil, err
-
-	}
-
-	response := map[string]interface{}{
-
-		"data": map[string]interface{}{
-
-			"nickname": p["nickname"].(string),
-
-			"rank": rank.Val(),
-		},
-	}
-
-	return response, nil
-
-}
-
-func GetScores(p map[string]interface{}) (map[string]interface{}, error) {
-
-	ctx := context.TODO()
-
-	start, err := strconv.ParseInt(fmt.Sprint(p["start"]), 10, 64)
-
-	if err != nil {
-
-		return nil, err
-
-	}
-
-	stop, err := strconv.ParseInt(fmt.Sprint(p["stop"]), 10, 64)
-
-	if err != nil {
-
-		return nil, err
-
-	}
-
-	total, err := database.Redis.ZCount(ctx, "app_users", "-inf", "+inf").Result() //int64
-
-	if err != nil {
-
-		return nil, err
-
-	}
-
-	scores, err := database.Redis.ZRevRangeWithScores(ctx, "app_users", start, stop).Result() //highest to lowest score
-
-	if err != nil {
-
-		return nil, err
-
-	}
-
-	data := []map[string]interface{}{}
-
-	for _, z := range scores {
-
-		record := map[string]interface{}{}
-
-		rank := database.Redis.ZRank(ctx, "app_users", z.Member.(string))
-
-		if err != nil {
-
-			return nil, err
+			params[k] = v[0]
 
 		}
 
-		record["nickname"] = z.Member.(string)
+		resp, err = service.GetScores(params)
 
-		record["score"] = z.Score
+	} else if req.Method == "POST" {
 
-		record["rank"] = rank.Val()
+		err = json.NewDecoder(req.Body).Decode(&params)
 
-		data = append(data, record)
-
-	}
-
-	countPerRequest := stop - start + 1
-
-	if stop == -1 {
-
-		countPerRequest = total
+		resp, err = service.AddScore(params)
 
 	}
 
-	response := map[string]interface{}{
+	enc := json.NewEncoder(w)
 
-		"data": data,
+	enc.SetIndent("", "  ")
 
-		"meta": map[string]interface{}{
+	if err != nil {
 
-			"start": start,
+		resp = map[string]interface{}{
 
-			"stop": stop,
+			"error": err.Error(),
+		}
 
-			"per_request": countPerRequest,
+	} else {
 
-			"total": total,
-		},
+		if encodingErr := enc.Encode(resp); encodingErr != nil {
+
+			fmt.Println("{ error: " + encodingErr.Error() + "}")
+
+		}
+
 	}
-
-	return response, nil
 
 }
